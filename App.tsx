@@ -30,9 +30,11 @@ import {
   buildBalanceSheetSummary,
   calculateNextRunDate,
   calculatePriorityScore,
+  calculateVarianceInsights,
   collectNumberIssues,
   computeThresholdMetrics,
   createCorrectionLogEntry,
+  DEFAULT_VARIANCE_THRESHOLD,
   determineThresholdLevel,
   normalizeAmount,
 } from './services/analyticsService';
@@ -82,6 +84,20 @@ const hydrateAccount = (rawAccount: any): GLAccount => {
     typeof rawAccount?.normalizedBalance === 'number' ? rawAccount.normalizedBalance : normalization.normalized;
   const currency = rawAccount?.currency ?? normalization.currency;
   const balanceIssues = Array.isArray(rawAccount?.balanceIssues) ? rawAccount.balanceIssues : normalization.issues;
+  const parsedPercentVariance =
+    typeof rawAccount?.percentVariance === 'number'
+      ? rawAccount.percentVariance
+      : rawAccount?.percentVariance
+      ? Number.parseFloat(String(rawAccount.percentVariance).replace(/[^0-9.-]/g, ''))
+      : undefined;
+  const parsedPreviousBalance =
+    typeof rawAccount?.previousBalance === 'number' ? rawAccount.previousBalance : undefined;
+  const normalizedFlag =
+    rawAccount?.flagStatus && String(rawAccount.flagStatus).toLowerCase().includes('red')
+      ? 'Red'
+      : rawAccount?.flagStatus && String(rawAccount.flagStatus).toLowerCase().includes('green')
+      ? 'Green'
+      : undefined;
 
   const baseAccount: GLAccount = {
     ...rawAccount,
@@ -124,16 +140,35 @@ const hydrateAccount = (rawAccount: any): GLAccount => {
     priorityScore: rawAccount.priorityScore,
     varianceAgainstPrevious: rawAccount.varianceAgainstPrevious ?? 0,
     frequencyBucket: rawAccount.frequencyBucket ?? rawAccount.thresholdLevel,
+    reviewCheckpointAbex: rawAccount.reviewCheckpointAbex ?? '',
+    analysisRequired: rawAccount.analysisRequired ?? 'No',
+    typeOfReport: rawAccount.typeOfReport ?? '',
+    flagStatus: normalizedFlag,
+    percentVariance: parsedPercentVariance,
+    previousBalance: parsedPreviousBalance,
+    reconStatus: rawAccount.reconStatus ?? 'Recon',
+    confirmationSource: rawAccount.confirmationSource ?? 'Internal',
+    workingNeeded: rawAccount.workingNeeded ?? '',
+    queryType: rawAccount.queryType ?? '',
+    departmentReviewer: rawAccount.departmentReviewer ?? rawAccount.reviewer ?? '',
   };
 
   const thresholdLevel = rawAccount.thresholdLevel ?? determineThresholdLevel(baseAccount);
   const priorityScore = rawAccount.priorityScore ?? calculatePriorityScore(baseAccount, thresholdLevel);
+  const varianceDetails = calculateVarianceInsights(
+    baseAccount.normalizedBalance,
+    baseAccount.previousBalance,
+    DEFAULT_VARIANCE_THRESHOLD
+  );
 
   return {
     ...baseAccount,
     thresholdLevel,
     priorityScore,
     frequencyBucket: baseAccount.frequencyBucket ?? thresholdLevel,
+    flagStatus: baseAccount.flagStatus ?? varianceDetails.flagStatus,
+    percentVariance: baseAccount.percentVariance ?? varianceDetails.percentVariance,
+    previousBalance: baseAccount.previousBalance ?? varianceDetails.previousBalance,
   };
 };
 
@@ -629,6 +664,15 @@ const App: React.FC = () => {
             { ...acc, normalizedBalance: amount, thresholdLevel },
             thresholdLevel
           );
+          const previousBalance = acc.previousBalance ?? acc.normalizedBalance ?? 0;
+          const varianceDetails = calculateVarianceInsights(amount, previousBalance, DEFAULT_VARIANCE_THRESHOLD);
+          const percentVariance =
+            varianceDetails.percentVariance !== undefined ? varianceDetails.percentVariance : acc.percentVariance;
+          const flagStatus = varianceDetails.flagStatus ?? acc.flagStatus;
+          const analysisRequired =
+            acc.analysisRequired === 'Yes' || (percentVariance !== undefined && Math.abs(percentVariance) > DEFAULT_VARIANCE_THRESHOLD * 100)
+              ? 'Yes'
+              : acc.analysisRequired ?? 'No';
           return {
             ...acc,
             normalizedBalance: amount,
@@ -636,6 +680,10 @@ const App: React.FC = () => {
             thresholdLevel,
             priorityScore,
             varianceAgainstPrevious: Number(((amount - (acc.normalizedBalance ?? 0)) / (Math.abs(acc.normalizedBalance ?? 1) || 1)).toFixed(4)),
+            percentVariance,
+            flagStatus,
+            previousBalance,
+            analysisRequired,
             mistakeCount: acc.mistakeCount + 1,
             auditLog: [
               ...acc.auditLog,

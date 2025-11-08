@@ -18,7 +18,13 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { classifyGLAccount } from '../services/classificationService';
-import { calculatePriorityScore, determineThresholdLevel, normalizeAmount } from '../services/analyticsService';
+import {
+  calculatePriorityScore,
+  calculateVarianceInsights,
+  DEFAULT_VARIANCE_THRESHOLD,
+  determineThresholdLevel,
+  normalizeAmount,
+} from '../services/analyticsService';
 
 interface UploadViewProps {
   onCompleteUpload: (payload: UploadCompletionPayload) => void;
@@ -50,8 +56,19 @@ const REQUIRED_HEADERS_ALIASES: Record<string, string[]> = {
   subHead: ['Sub head', 'Sub Head', 'Secondary Head'],
   bsPl: ['BS/PL', 'Statement Type'],
   statusCategory: ['Status', 'Category'],
-  spoc: ['Departement SPOC', 'SPOC', 'Contact'],
+  spoc: ['Departement SPOC', 'SPOC', 'Contact', 'Department SPOC'],
   reviewer: ['Departement Reviewer', 'Reviewer'],
+  departmentReviewer: ['Department Reviewer'],
+  reviewCheckpointAbex: ['Review Check Point at ABEX', 'ABEX Checkpoint'],
+  analysisRequired: ['Analysis Required'],
+  typeOfReport: ['Type of Report'],
+  flagStatus: ['Flag', 'Flag (Green / Red)', 'Flag (Green/Red)'],
+  percentVariance: ['% Variance', 'Percent Variance'],
+  reconStatus: ['Recon / Non Recon', 'Reconciliation Status'],
+  confirmationSource: ['Confirmation (Internal / External)', 'Confirmation Source'],
+  workingNeeded: ['Working Needed'],
+  queryType: ['Query type / Action points', 'Query Type', 'Action Points'],
+  cml: ['C/M/L', 'Severity'],
   balance: ['Balance', 'Ending Balance', 'Amount', 'Closing Balance'],
   currency: ['Currency', 'Curr', 'Ccy'],
   balanceDate: ['Balance Date', 'As Of Date', 'Posting Date', 'Date'],
@@ -79,6 +96,14 @@ const sortAccounts = (list: GLAccount[]) =>
     }
     return a.glAccountNumber.localeCompare(b.glAccountNumber, undefined, { sensitivity: 'base' });
   });
+
+const parseNumberFromString = (value?: string): number | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  const numeric = Number.parseFloat(value.replace(/[^0-9.-]/g, ''));
+  return Number.isNaN(numeric) ? undefined : numeric;
+};
 
 const UploadView: React.FC<UploadViewProps> = ({
   onCompleteUpload,
@@ -437,6 +462,48 @@ const UploadView: React.FC<UploadViewProps> = ({
           );
         }
 
+        const previousAccount = currentAccounts.find(acc => acc.glAccountNumber === accountNumber);
+        const providedVariance = parseNumberFromString(rowData.percentVariance);
+        const varianceInfo = calculateVarianceInsights(
+          amountResult.normalized,
+          previousAccount?.normalizedBalance ?? previousAccount?.previousBalance ?? null,
+          DEFAULT_VARIANCE_THRESHOLD
+        );
+        const manualFlag =
+          rowData.flagStatus && rowData.flagStatus.toLowerCase().includes('red')
+            ? 'Red'
+            : rowData.flagStatus && rowData.flagStatus.toLowerCase().includes('green')
+            ? 'Green'
+            : undefined;
+        const derivedPercent = providedVariance ?? varianceInfo.percentVariance;
+        let flagFromInsights = varianceInfo.flagStatus;
+        if (providedVariance !== undefined && !manualFlag) {
+          flagFromInsights = Math.abs(providedVariance) > DEFAULT_VARIANCE_THRESHOLD * 100 ? 'Red' : 'Green';
+        }
+        const derivedFlag = manualFlag ?? flagFromInsights;
+
+        const normalizedRecon = rowData.reconStatus
+          ? rowData.reconStatus
+          : previousAccount?.reconStatus ?? 'Recon';
+        const normalizedConfirmation = rowData.confirmationSource
+          ? rowData.confirmationSource
+          : previousAccount?.confirmationSource ?? 'Internal';
+        const normalizedTypeOfReport = rowData.typeOfReport || previousAccount?.typeOfReport || '';
+        const normalizedAnalysis =
+          rowData.analysisRequired ||
+          (derivedPercent !== undefined && Math.abs(derivedPercent) > DEFAULT_VARIANCE_THRESHOLD * 100 ? 'Yes' : 'No');
+        const normalizedWorkingNeeded =
+          rowData.workingNeeded ||
+          (normalizedAnalysis === 'Yes' ? 'Review variance details' : previousAccount?.workingNeeded ?? '');
+        const normalizedQueryType =
+          rowData.queryType || previousAccount?.queryType || (normalizedAnalysis === 'Yes' ? 'Variance Review' : '');
+        const normalizedCheckpoint =
+          rowData.reviewCheckpointAbex ||
+          previousAccount?.reviewCheckpointAbex ||
+          (normalizedAnalysis === 'Yes' ? 'Pending' : 'Complete');
+        const departmentReviewer =
+          rowData.departmentReviewer || rowData.reviewer || previousAccount?.departmentReviewer || previousAccount?.reviewer || '';
+
         const account: GLAccount = {
           id: getNextId(),
           glAccountNumber: accountNumber,
@@ -476,11 +543,45 @@ const UploadView: React.FC<UploadViewProps> = ({
           currency: amountResult.currency,
           balanceIssues: amountResult.issues,
           balanceDate: rowData.balanceDate ? new Date(rowData.balanceDate).toISOString() : undefined,
+          reviewCheckpointAbex: normalizedCheckpoint,
+          analysisRequired: normalizedAnalysis,
+          typeOfReport: normalizedTypeOfReport,
+          flagStatus: derivedFlag,
+          percentVariance: derivedPercent,
+          previousBalance: varianceInfo.previousBalance ?? previousAccount?.normalizedBalance,
+          reconStatus: normalizedRecon,
+          confirmationSource: normalizedConfirmation,
+          workingNeeded: normalizedWorkingNeeded,
+          queryType: normalizedQueryType,
+          departmentReviewer,
         };
 
         const thresholdLevel = determineThresholdLevel(account);
-        account.thresholdLevel = thresholdLevel;
-        account.priorityScore = calculatePriorityScore(account, thresholdLevel);
+        const manualSeverity = rowData.cml ? rowData.cml.trim().toUpperCase() : undefined;
+        account.thresholdLevel =
+          manualSeverity === 'C' || manualSeverity === 'M' || manualSeverity === 'L'
+            ? (manualSeverity as typeof account.thresholdLevel)
+            : thresholdLevel;
+        account.priorityScore = calculatePriorityScore(account, account.thresholdLevel ?? thresholdLevel);
+        if (!account.flagStatus && account.percentVariance !== undefined) {
+          account.flagStatus =
+            Math.abs(account.percentVariance) > DEFAULT_VARIANCE_THRESHOLD * 100 ? 'Red' : 'Green';
+        }
+        if (!account.reconStatus && previousAccount?.reconStatus) {
+          account.reconStatus = previousAccount.reconStatus;
+        }
+        if (!account.confirmationSource && previousAccount?.confirmationSource) {
+          account.confirmationSource = previousAccount.confirmationSource;
+        }
+        if (!account.frequencyBucket) {
+          account.frequencyBucket = account.thresholdLevel;
+        }
+        if (departmentReviewer) {
+          account.reviewer = departmentReviewer;
+          account.departmentReviewer = departmentReviewer;
+        } else if (!account.departmentReviewer) {
+          account.departmentReviewer = account.reviewer;
+        }
 
         accounts.push(account);
         seenNumbers.set(accountNumber, { fileName: file.name, rows: [originalRowNum] });

@@ -41,8 +41,22 @@ const GLAccountTable: React.FC<GLAccountTableProps> = ({
     let sortableAccounts = [...visibleAccounts];
     if (sortConfig !== null) {
       sortableAccounts.sort((a, b) => {
-        const aValue = sortConfig.key === 'currentChecker' ? (a.currentChecker || 'Finalized') : a[sortConfig.key];
-        const bValue = sortConfig.key === 'currentChecker' ? (b.currentChecker || 'Finalized') : b[sortConfig.key];
+        const aRaw = sortConfig.key === 'currentChecker' ? (a.currentChecker || 'Finalized') : (a as any)[sortConfig.key];
+        const bRaw = sortConfig.key === 'currentChecker' ? (b.currentChecker || 'Finalized') : (b as any)[sortConfig.key];
+
+        if (typeof aRaw === 'number' && typeof bRaw === 'number') {
+          if (aRaw < bRaw) {
+            return sortConfig.direction === 'ascending' ? -1 : 1;
+          }
+          if (aRaw > bRaw) {
+            return sortConfig.direction === 'ascending' ? 1 : -1;
+          }
+          return 0;
+        }
+
+        const aValue = (aRaw ?? '').toString().toLowerCase();
+        const bValue = (bRaw ?? '').toString().toLowerCase();
+
         if (aValue < bValue) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
@@ -99,12 +113,17 @@ const GLAccountTable: React.FC<GLAccountTableProps> = ({
         </div>
       </div>
       <div className="relative mt-6 overflow-x-auto rounded-2xl border border-white/5">
-        <table className="min-w-[960px] divide-y divide-white/5">
+        <table className="min-w-[1400px] divide-y divide-white/5">
           <thead className="bg-white/5 backdrop-blur">
             <tr>
               <SortableHeader tkey="glAccountNumber" label="GL Account #" />
               <SortableHeader tkey="glAccount" label="GL Account Name" />
               <SortableHeader tkey="responsibleDept" label="Department" />
+              <SortableHeader tkey="typeOfReport" label="Report Type" />
+              <SortableHeader tkey="flagStatus" label="Flag" />
+              <SortableHeader tkey="percentVariance" label="% Var" />
+              <SortableHeader tkey="reconStatus" label="Recon Status" />
+              <SortableHeader tkey="confirmationSource" label="Confirmation" />
               <SortableHeader tkey="currentChecker" label="Current Stage" />
               <SortableHeader tkey="reviewStatus" label="Status" />
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -133,6 +152,27 @@ const GLAccountTable: React.FC<GLAccountTableProps> = ({
                       </span>
                     )}
                   </div>
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">{account.typeOfReport || '—'}</td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm">
+                  <span
+                    className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                      account.flagStatus === 'Red'
+                        ? 'border border-rose-400/30 bg-rose-500/10 text-rose-200'
+                        : 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                    }`}
+                  >
+                    {account.flagStatus ?? 'Green'}
+                  </span>
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">
+                  {account.percentVariance !== undefined ? `${account.percentVariance.toFixed(2)}%` : '—'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">
+                  {account.reconStatus || '—'}
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-300">
+                  {account.confirmationSource || '—'}
                 </td>
                  <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-slate-200">{account.currentChecker || 'Finalized'}</td>
                 <td className="px-4 py-4 whitespace-nowrap">

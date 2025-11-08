@@ -13,6 +13,16 @@ type EditableAccountFields = Pick<
   | 'statusCategory'
   | 'spoc'
   | 'reviewer'
+  | 'typeOfReport'
+  | 'flagStatus'
+  | 'percentVariance'
+  | 'reconStatus'
+  | 'confirmationSource'
+  | 'analysisRequired'
+  | 'workingNeeded'
+  | 'queryType'
+  | 'reviewCheckpointAbex'
+  | 'departmentReviewer'
 >;
 
 interface EditAccountModalProps {
@@ -32,9 +42,27 @@ const EditAccountModal: React.FC<EditAccountModalProps> = ({ account, onClose, o
     statusCategory: account.statusCategory,
     spoc: account.spoc,
     reviewer: account.reviewer,
+    typeOfReport: account.typeOfReport ?? '',
+    flagStatus: account.flagStatus ?? 'Green',
+    percentVariance: account.percentVariance,
+    reconStatus: account.reconStatus ?? 'Recon',
+    confirmationSource: account.confirmationSource ?? 'Internal',
+    analysisRequired: account.analysisRequired ?? 'No',
+    workingNeeded: account.workingNeeded ?? '',
+    queryType: account.queryType ?? '',
+    reviewCheckpointAbex: account.reviewCheckpointAbex ?? '',
+    departmentReviewer: account.departmentReviewer ?? account.reviewer,
   });
 
   const handleChange = (field: keyof EditableAccountFields, value: string) => {
+    if (field === 'percentVariance') {
+      const parsed = value === '' ? undefined : Number.parseFloat(value);
+      setFormState(prev => ({
+        ...prev,
+        percentVariance: Number.isNaN(parsed as number) ? prev.percentVariance : parsed,
+      }));
+      return;
+    }
     setFormState(prev => ({
       ...prev,
       [field]: value,
@@ -143,6 +171,109 @@ const EditAccountModal: React.FC<EditAccountModalProps> = ({ account, onClose, o
                 onChange={(e) => handleChange('reviewer', e.target.value)}
                 className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2">
+              Department Reviewer
+              <input
+                value={formState.departmentReviewer ?? ''}
+                onChange={(e) => handleChange('departmentReviewer', e.target.value)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="flex flex-col text-sm font-medium text-gray-700">
+              Type of Report
+              <select
+                value={formState.typeOfReport}
+                onChange={(e) => handleChange('typeOfReport', e.target.value)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Not Set</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Half-Yearly">Half-Yearly</option>
+                <option value="Yearly">Yearly</option>
+              </select>
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700">
+              Recon / Non-Recon
+              <select
+                value={formState.reconStatus ?? ''}
+                onChange={(e) => handleChange('reconStatus', e.target.value)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Recon">Recon</option>
+                <option value="Non-Recon">Non-Recon</option>
+              </select>
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700">
+              Confirmation (Internal / External)
+              <select
+                value={formState.confirmationSource ?? ''}
+                onChange={(e) => handleChange('confirmationSource', e.target.value)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Internal">Internal</option>
+                <option value="External">External</option>
+              </select>
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700">
+              Review Check Point at ABEX
+              <input
+                value={formState.reviewCheckpointAbex ?? ''}
+                onChange={(e) => handleChange('reviewCheckpointAbex', e.target.value)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700">
+              Analysis Required
+              <select
+                value={formState.analysisRequired ?? 'No'}
+                onChange={(e) => handleChange('analysisRequired', e.target.value)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700">
+              Flag (Green / Red)
+              <select
+                value={formState.flagStatus ?? 'Green'}
+                onChange={(e) => handleChange('flagStatus', e.target.value)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Green">Green</option>
+                <option value="Red">Red</option>
+              </select>
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700">
+              % Variance
+              <input
+                value={formState.percentVariance !== undefined ? String(formState.percentVariance) : ''}
+                onChange={(e) => handleChange('percentVariance', e.target.value)}
+                placeholder="e.g., 5"
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2">
+              Working Needed
+              <input
+                value={formState.workingNeeded ?? ''}
+                onChange={(e) => handleChange('workingNeeded', e.target.value)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </label>
+            <label className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2">
+              Query Type / Action Points
+              <textarea
+                value={formState.queryType ?? ''}
+                onChange={(e) => handleChange('queryType', e.target.value)}
+                rows={3}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </label>
           </div>

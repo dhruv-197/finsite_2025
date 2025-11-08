@@ -24,6 +24,7 @@ const CURRENCY_SIGNS: Record<string, string> = {
 };
 
 const DEFAULT_CURRENCY = 'INR';
+export const DEFAULT_VARIANCE_THRESHOLD = 0.1;
 
 const cleanNumericString = (value: string): string => {
   return value
@@ -110,6 +111,36 @@ export const calculatePriorityScore = (account: GLAccount, threshold: ThresholdL
   const confidencePenalty = 1 - (account.classificationConfidence ?? 0.7);
 
   return Number(((amount / 1_000_000) * severityWeight + mistakeWeight + sourceWeight + confidencePenalty).toFixed(2));
+};
+
+export const calculateVarianceInsights = (
+  currentBalance: number | undefined,
+  previousBalance?: number | null,
+  threshold: number = DEFAULT_VARIANCE_THRESHOLD
+): { percentVariance?: number; flagStatus?: 'Green' | 'Red'; previousBalance?: number } => {
+  if (currentBalance === undefined || currentBalance === null) {
+    return {};
+  }
+
+  if (previousBalance === undefined || previousBalance === null) {
+    return { previousBalance: undefined };
+  }
+
+  const baseline = previousBalance === 0 ? (currentBalance === 0 ? 1 : Math.abs(currentBalance)) : previousBalance;
+  const variance = ((currentBalance - previousBalance) / baseline) * 100;
+  const percentVariance = Number.isFinite(variance) ? Number(variance.toFixed(2)) : undefined;
+
+  if (percentVariance === undefined) {
+    return { previousBalance };
+  }
+
+  const flagStatus = Math.abs(percentVariance) > threshold * 100 ? 'Red' : 'Green';
+
+  return {
+    percentVariance,
+    flagStatus,
+    previousBalance,
+  };
 };
 
 export const computeThresholdMetrics = (accounts: GLAccount[]): ThresholdMetric[] => {

@@ -67,6 +67,17 @@ export interface GLAccount {
   priorityScore?: number;
   varianceAgainstPrevious?: number;
   frequencyBucket?: ThresholdLevel;
+  reviewCheckpointAbex?: string;
+  analysisRequired?: string;
+  typeOfReport?: string;
+  flagStatus?: 'Green' | 'Red';
+  percentVariance?: number;
+  previousBalance?: number;
+  reconStatus?: string;
+  confirmationSource?: string;
+  workingNeeded?: string;
+  queryType?: string;
+  departmentReviewer?: string;
 }
 
 export interface ChatMessage {

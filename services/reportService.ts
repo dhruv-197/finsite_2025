@@ -22,6 +22,17 @@ const buildAccountsSheet = (accounts: GLAccount[]) => {
     'Normalized Balance': account.normalizedBalance,
     Currency: account.currency,
     'Balance Date': account.balanceDate,
+    'Previous Balance': account.previousBalance,
+    'Percent Variance %': account.percentVariance,
+    Flag: account.flagStatus,
+    'Type of Report': account.typeOfReport,
+    'Recon Status': account.reconStatus,
+    'Confirmation Source': account.confirmationSource,
+    'Analysis Required': account.analysisRequired,
+    'Working Needed': account.workingNeeded,
+    'Query Type / Action Points': account.queryType,
+    'Review Check Point at ABEX': account.reviewCheckpointAbex,
+    'Department Reviewer': account.departmentReviewer ?? account.reviewer,
   }));
   return XLSX.utils.json_to_sheet(data);
 };

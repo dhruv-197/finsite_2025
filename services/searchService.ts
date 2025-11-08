@@ -11,7 +11,12 @@ const formatAccounts = (accounts: GLAccount[]): string =>
     .map(
       account =>
         `• ${account.glAccountNumber} – ${account.glAccount} (${account.responsibleDept}) ` +
-        `status ${account.reviewStatus}${account.thresholdLevel ? ` · severity ${account.thresholdLevel}` : ''}`
+        `status ${account.reviewStatus}` +
+        `${account.thresholdLevel ? ` · severity ${account.thresholdLevel}` : ''}` +
+        `${account.flagStatus ? ` · flag ${account.flagStatus}` : ''}` +
+        `${
+          account.percentVariance !== undefined ? ` · variance ${account.percentVariance.toFixed(2)}%` : ''
+        }`
     )
     .join('\n');
 
