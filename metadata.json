@@ -1,0 +1,5 @@
+{
+  "name": "FinSight AI: Automated Balance Sheet Assurance",
+  "description": "An AI-powered agent that automates the end-to-end lifecycle of reviewing financial statements. Ingest trial reports, validate data through a multi-level checker workflow, and generate insightful dashboards and conversational reports for leadership.",
+  "requestFramePermissions": []
+}
